@@ -105,7 +105,7 @@ def salvar_em_excel(dados, nome_arquivo="notas_fiscais.xlsx"):
 
 if __name__ == "__main__":
 
-    caminho_imagem = "notas_fiscais/cupom_qr_code.jpg"  
+    caminho_imagem = "notas_fiscais/nota2.jpg"  
     url_nota = ler_qr_code(caminho_imagem)
     
     # url_nota = "https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx?p=35250803031196000170650030001295861733007779|2|1|1|7AB85B08CD66B6B8EF40444BC2ED30D348E2611A"
