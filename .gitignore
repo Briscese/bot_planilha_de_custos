@@ -145,6 +145,8 @@ env.bak/
 venv.bak/
 notas_fiscais/*
 pedagios/*
+notas_fiscais.xlsx
+pedagios.xlsx
 
 # Spyder project settings
 .spyderproject
