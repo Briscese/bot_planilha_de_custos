@@ -126,6 +126,7 @@ if __name__ == "__main__":
         "pedagios/pedagio2.jpg",
         "pedagios/pedagio3.jpg"
     ]
+    
     todas_as_transacoes = []
     for caminho_imagem in imagens_para_processar:
         if not os.path.exists(caminho_imagem):
