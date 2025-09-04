@@ -147,6 +147,11 @@ notas_fiscais/*
 pedagios/*
 notas_fiscais.xlsx
 pedagios.xlsx
+gcloud_credentials.json
+
+# mypy
+.mypy_cache/
+
 
 # Spyder project settings
 .spyderproject
