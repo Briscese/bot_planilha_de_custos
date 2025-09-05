@@ -148,6 +148,7 @@ pedagios/*
 notas_fiscais.xlsx
 pedagios.xlsx
 gcloud_credentials.json
+reembolso_preenchido.xlsx
 
 # mypy
 .mypy_cache/

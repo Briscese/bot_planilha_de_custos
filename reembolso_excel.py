@@ -36,10 +36,10 @@ ws['G6'] = "AGENCIA E/C: "
 ws['G7'] = "PIX: "
 
 ws['H3'] = "Rubsney Nascimento"
-ws['H4'] = "041.947.439-03"
+ws['H4'] = "XXXXXX"
 ws['H5'] = "Nubank"
 
-ws['H7'] = "041.947.439-03"
+ws['H7'] = "XXXXXX"
 
 ws['B8'] = "Relató de Reembolso"
 
@@ -55,6 +55,14 @@ ws['J9'] = "REF. MAPS"
 
 ws['I17'] = '=SUM(I10:I15)'
 ws['B17'] = "TOTAL A RECEBER"
+
+ws['B18'] = "APROVAÇÕES"
+
+ws['C20'] = "NOME COLABORADOR"
+ws['C21'] = "ASSINATURA"
+ws['C22'] = "DATA"
+
+
 
 ws.add_image(imgito, 'B3')
 
