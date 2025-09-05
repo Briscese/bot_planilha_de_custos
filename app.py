@@ -4,74 +4,126 @@ import requests
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 
-
-from processador_cupom import configurar_detector_wechat, ler_qr_code, extrair_dados_pagina, salvar_em_excel as salvar_cupom
-from processador_pedagio import extrair_texto_da_imagem, analisar_e_estruturar_texto, salvar_em_excel as salvar_pedagio
-
+# --- Importa os dois motores ---
+from processador_cupom import (
+    configurar_detector_wechat,
+    ler_qr_code,
+    extrair_dados_pagina,
+    preencher_planilha_reembolso as salvar_cupom,
+)
+from processador_pedagio import (
+    extrair_texto_da_imagem,
+    analisar_e_estruturar_texto,
+    preencher_planilha_reembolso as salvar_pedagio,
+)
 
 app = Flask(__name__)
-detector_qr = configurar_detector_wechat()
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-TEMP_DIR = os.path.join(BASE_DIR, "temp")
-if not os.path.exists(TEMP_DIR):
-    os.makedirs(TEMP_DIR)
+# --- Configura o detector do WeChat ---
+detector = configurar_detector_wechat()
 
-# Carrega as credenciais da Twilio do ambiente
-ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+# --- Variáveis de ambiente ---
+ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 
-@app.route('/whatsapp', methods=['POST'])
-def webhook_whatsapp():
-    dados_recebidos = request.form
-    num_media = int(dados_recebidos.get('NumMedia', 0))
-    response = MessagingResponse()
-    
+
+@app.route("/whatsapp", methods=["POST"])
+def whatsapp_bot():
+    print("📩 Recebido webhook do WhatsApp")
+
+    dados_recebidos = request.form.to_dict()
+    print(f"📑 Dados recebidos: {dados_recebidos}")
+
+    media_url = request.values.get("MediaUrl0", None)
+    num_media = int(request.values.get("NumMedia", 0))
+
+    resp = MessagingResponse()
+    msg = resp.message()
+
     if num_media > 0:
-        url_da_imagem = dados_recebidos.get('MediaUrl0')
-        nome_arquivo_temp = os.path.join(TEMP_DIR, f'{uuid.uuid4()}.jpg')
-        
+        print(f"🖼️ Recebida uma imagem: {media_url}")
+
         try:
-            # Baixa a imagem de forma autenticada
-            conteudo_imagem = requests.get(url_da_imagem, auth=(ACCOUNT_SID, AUTH_TOKEN)).content
-            with open(nome_arquivo_temp, 'wb') as f:
-                f.write(conteudo_imagem)
+            file_path = baixar_imagem(media_url, "entrada")
 
-            # LÓGICA DE DECISÃO
-            url_nota = ler_qr_code(detector_qr, nome_arquivo_temp)
+            # 1️⃣ Tenta ler QRCode (cupom)
+            dados_qr = ler_qr_code(detector, file_path)
+            if dados_qr:
+                dados_da_nota = extrair_dados_pagina(dados_qr)
+                salvar_cupom(
+                    [
+                        {
+                            "Data": dados_da_nota["data_emissao"],
+                            "Tipo de Despesa": "Combustivel/Alimentação",
+                            "Estabelecimento": dados_da_nota["nome_estabelecimento"],
+                            "Valor": dados_da_nota["valor_total"],
+                        }
+                    ],
+                    "planilha_reembolso_branco.xlsx",
+                    "reembolso_preenchido.xlsx",
+                    "Plan2",
+                    46,
+                )
+                msg.body(
+                    f"✅ Cupom processado: {dados_da_nota['nome_estabelecimento']} - R${dados_da_nota['valor_total']}"
+                )
+                return str(resp)
 
-            if url_nota:
-                dados_da_nota = extrair_dados_pagina(url_nota)
-                if dados_da_nota and dados_da_nota.get('valor_total', 0) > 0:
-                    salvar_cupom(dados_da_nota)
-                    response.message(f"✅ Nota Fiscal de '{dados_da_nota['nome_estabelecimento']}' (R$ {dados_da_nota['valor_total']:.2f}) processada!")
-                else:
-                    response.message("❌ QR Code lido, mas falha ao extrair dados do site.")
-            else:
-                texto_extraido = extrair_texto_da_imagem(nome_arquivo_temp)
-                if texto_extraido:
-                    lista_de_transacoes = analisar_e_estruturar_texto(texto_extraido)
-                    if lista_de_transacoes:
-                        salvar_pedagio(lista_de_transacoes)
-                        response.message(f"✅ Extrato com {len(lista_de_transacoes)} transações processado!")
-                    else:
-                        response.message("❌ Imagem lida, mas não encontrei transações válidas.")
-                else:
-                    response.message("❌ Não consegui ler nenhum texto na imagem.")
-        
+            # 2️⃣ Se não tem QRCode, tenta OCR (pedágio)
+            texto_extraido = extrair_texto_da_imagem(file_path)
+            lista_transacoes = analisar_e_estruturar_texto(texto_extraido)
+
+            if lista_transacoes:
+                salvar_pedagio(
+                    lista_transacoes,
+                    "planilha_reembolso_branco.xlsx",
+                    "reembolso_preenchido.xlsx",
+                    "Plan2",
+                    46,
+                )
+                msg.body(
+                    f"✅ Pedágio processado: {len(lista_transacoes)} lançamentos adicionados."
+                )
+                return str(resp)
+
+            # 3️⃣ Caso não reconheça nada
+            msg.body("❌ Não consegui identificar se é cupom ou pedágio.")
+
         except Exception as e:
-            print(f"ERRO GERAL: {e}")
-            response.message("Ocorreu um erro inesperado. 😔")
-        finally:
-            if os.path.exists(nome_arquivo_temp):
-                os.remove(nome_arquivo_temp)
+            msg.body(f"⚠️ Erro ao processar imagem: {str(e)}")
+
     else:
-        response.message("Olá! Envie a imagem de um cupom fiscal ou extrato de pedágio.")
+        remetente = request.values.get("From", "")
+        texto = request.values.get("Body", "").strip()
+        print(f"💬 Recebido texto de {remetente}: {texto}")
+        msg.body("Por favor envie uma nota fiscal (cupom) ou comprovante de pedágio.")
 
-    return str(response)
+    return str(resp)
 
-if __name__ == '__main__':
+
+
+def baixar_imagem(media_url, prefixo):
+    """Baixa a imagem recebida via WhatsApp e salva em disco"""
+    extensao = os.path.splitext(media_url)[1] or ".jpg"
+    file_name = f"{prefixo}_{uuid.uuid4().hex}{extensao}"
+    file_path = os.path.join("downloads", file_name)
+
+    os.makedirs("downloads", exist_ok=True)
+
+    resp = requests.get(media_url, auth=(ACCOUNT_SID, AUTH_TOKEN))  # <- adiciona auth
+    resp.raise_for_status()  # opcional, vai lançar exceção se falhar
+    with open(file_path, "wb") as f:
+        f.write(resp.content)
+
+    print(f"📂 Imagem salva em {file_path}")
+    return file_path
+
+
+
+if __name__ == "__main__":
     if not all([ACCOUNT_SID, AUTH_TOKEN]):
-        print("ERRO FATAL: Configure as variáveis de ambiente TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN.")
+        print(
+            "ERRO FATAL: Configure as variáveis de ambiente TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN."
+        )
     else:
-        app.run(port=5000, debug=True)
+        app.run(host="0.0.0.0", port=5000, debug=True)
