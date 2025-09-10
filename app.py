@@ -3,6 +3,10 @@ import uuid
 import requests
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 # --- Importa os dois motores ---
 from processador_cupom import (
