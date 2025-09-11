@@ -5,12 +5,14 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # 3. Instala as dependências do sistema operacional (Tesseract E as libs gráficas para o OpenCV)
-RUN apt-get update && apt-get install -y \
+#    Adicionada a biblioteca 'libglib2.0-0' para maior compatibilidade.
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-por \
     libgl1-mesa-glx \
-    --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    libglib2.0-0 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # 4. Copia o arquivo com a lista de bibliotecas Python para dentro do contêiner
 COPY requirements.txt .
@@ -29,4 +31,3 @@ EXPOSE 10000
 
 # 9. O comando final para iniciar o seu bot com o servidor Gunicorn
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000", "--timeout", "120"]
-
