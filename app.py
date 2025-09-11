@@ -64,6 +64,8 @@ def salvar_dados_iniciais(dados, arquivo_modelo, arquivo_destino, nome_da_aba):
     sheet["H5"] = dados.get("banco", "")
     sheet["H6"] = dados.get("agencia_cc", "")
     sheet["H7"] = dados.get("pix", "")
+    sheet["F4"] = dados.get("data_inicial", "")
+    sheet["F5"] = dados.get("data_final", "")
 
     workbook.save(arquivo_destino)
     print("✅ Dados iniciais salvos na planilha!")
@@ -117,7 +119,9 @@ def whatsapp_bot():
         "Informe o CPF ou CNPJ:",
         "Qual o banco?",
         "Informe Agência e C/C:",
-        "Qual a chave PIX?"
+        "Qual a chave PIX?",
+        "Data Inicial: (DD/MM/AAAA)",
+        "Data Final: (DD/MM/AAAA)"
     ]
 
     usuario = estado_usuarios[from_number]
@@ -146,6 +150,11 @@ def whatsapp_bot():
             usuario["dados"]["agencia_cc"] = texto
         elif usuario["etapa"] == 4 and texto:
             usuario["dados"]["pix"] = texto
+        elif usuario["etapa"] == 5 and texto:
+            usuario["dados"]["data_inicial"] = texto
+        elif usuario["etapa"] == 6 and texto:
+            usuario["dados"]["data_final"] = texto
+
 
         usuario["etapa"] += 1
 
