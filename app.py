@@ -1,9 +1,8 @@
-# app.py (Versão Definitiva)
+# app.py
 
 import os
 import uuid
 import requests
-import re
 import pandas as pd
 import openpyxl
 from flask import Flask, request
@@ -20,23 +19,35 @@ from processador_pedagio import extrair_texto_da_imagem, analisar_e_estruturar_t
 
 # --- Configuração Inicial ---
 app = Flask(__name__)
-detector_qr = configurar_detector_wechat()
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+# No PythonAnywhere, os caminhos são relativos ao seu diretório home do usuário
+# Ex: /home/seu_usuario_pythonanywhere/
+HOME_DIR = os.path.expanduser("~")
+# O nome da sua pasta de projeto que você vai criar no PythonAnywhere
+PROJECT_FOLDER_NAME = "bot-whatsapp-reembolso" 
+BASE_DIR = os.path.join(HOME_DIR, PROJECT_FOLDER_NAME)
 TEMP_DIR = os.path.join(BASE_DIR, "temp")
 if not os.path.exists(TEMP_DIR):
     os.makedirs(TEMP_DIR)
+    
+detector_qr = configurar_detector_wechat()
 
 # Carrega as credenciais da Twilio do ambiente
-ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
+AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+
+# --- Configurações da Planilha ---
+NOME_DA_ABA = "Plan2"
+LINHA_DOS_TOTAIS = 46
+ARQUIVO_MODELO = os.path.join(BASE_DIR, "planilha_reembolso_branco.xlsx")
+ARQUIVO_DESTINO = os.path.join(BASE_DIR, "reembolso_preenchido.xlsx")
 
 # --- Função Centralizada para Preencher a Planilha ---
 def preencher_planilha_reembolso(transacoes, arquivo_modelo, arquivo_destino, nome_da_aba, linha_dos_totais):
     if not transacoes:
         print("AVISO: Nenhuma transação para preencher.")
         return
-    print(f"INFO: Preenchendo {len(transacoes)} transações em '{arquivo_destino}'...")
+    print(f"INFO: Preenchendo {len(transacoes)} transações em '{os.path.basename(arquivo_destino)}'...")
     if not os.path.exists(arquivo_destino):
         copyfile(arquivo_modelo, arquivo_destino)
     try:
@@ -52,7 +63,7 @@ def preencher_planilha_reembolso(transacoes, arquivo_modelo, arquivo_destino, no
 
         for transacao in transacoes:
             sheet[f'B{linha_atual}'] = transacao.get('Data')
-            sheet[f'C{linha_atual}'] = transacao.get('Estabelecimento', '') + ' - ' + transacao.get('Observação', '')
+            sheet[f'C{linha_atual}'] = transacao.get('Estabelecimento', '') + (' - ' + transacao.get('Observação', '') if transacao.get('Observação') else '')
             sheet[f'D{linha_atual}'] = transacao.get('Tipo de Despesa')
             sheet[f'F{linha_atual}'] = "São Jose dos Campos"
             sheet[f'G{linha_atual}'] = "São Paulo"
@@ -79,7 +90,7 @@ def whatsapp_bot():
             r.raise_for_status()
             with open(nome_arquivo_temp, "wb") as f:
                 f.write(r.content)
-            print(f"📂 Imagem salva em {nome_arquivo_temp}")
+            print(f"📂 Imagem salva em {os.path.basename(nome_arquivo_temp)}")
 
             # --- Lógica de Decisão ---
             url_nota = ler_qr_code(detector_qr, nome_arquivo_temp)
@@ -95,7 +106,7 @@ def whatsapp_bot():
                         "Valor": dados_nota['valor_total'],
                         "Observação": f"CNPJ: {dados_nota.get('cnpj', 'N/A')}"
                     }]
-                    preencher_planilha_reembolso(transacao_cupom, "planilha_reembolso_branco.xlsx", "reembolso_preenchido.xlsx", "Plan2", 46)
+                    preencher_planilha_reembolso(transacao_cupom, ARQUIVO_MODELO, ARQUIVO_DESTINO, NOME_DA_ABA, LINHA_DOS_TOTAIS)
                     msg.body(f"✅ Cupom de '{dados_nota['nome_estabelecimento']}' (R$ {dados_nota['valor_total']:.2f}) processado!")
                 else:
                     msg.body("❌ QR Code lido, mas falhou ao extrair os dados do site.")
@@ -105,7 +116,7 @@ def whatsapp_bot():
                 if texto_extraido:
                     lista_transacoes = analisar_e_estruturar_texto(texto_extraido)
                     if lista_transacoes:
-                        preencher_planilha_reembolso(lista_transacoes, "planilha_reembolso_branco.xlsx", "reembolso_preenchido.xlsx", "Plan2", 46)
+                        preencher_planilha_reembolso(lista_transacoes, ARQUIVO_MODELO, ARQUIVO_DESTINO, NOME_DA_ABA, LINHA_DOS_TOTAIS)
                         msg.body(f"✅ Extrato com {len(lista_transacoes)} transações processado!")
                     else:
                         msg.body("❌ Imagem lida, mas não encontrei transações válidas.")
@@ -118,14 +129,15 @@ def whatsapp_bot():
         finally:
             if os.path.exists(nome_arquivo_temp):
                 os.remove(nome_arquivo_temp)
-                print(f"🗑️ Arquivo temporário removido.")
     else:
         msg.body("Olá! Por favor, envie uma imagem de um cupom fiscal ou extrato de pedágio.")
 
     return str(resp)
 
+# O bloco __main__ não é usado no PythonAnywhere, mas é bom para testes locais
 if __name__ == "__main__":
     if not all([ACCOUNT_SID, AUTH_TOKEN]):
         print("ERRO FATAL: Configure as variáveis de ambiente TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN no arquivo .env")
     else:
         app.run(port=5000, debug=True)
+

@@ -8,7 +8,7 @@ from shutil import copyfile
 import openpyxl
 
 try:
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
     locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 except Exception as e:
     print(f"AVISO de configuração: {e}")
