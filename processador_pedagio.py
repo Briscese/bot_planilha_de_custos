@@ -7,6 +7,7 @@ import locale
 from shutil import copyfile
 import openpyxl
 
+
 try:
     # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
     locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
