@@ -1,12 +1,14 @@
-# 1. Comece com uma imagem oficial do Python 3.11 (leve e otimizada)
-FROM python:3.11-slim
+# 1. Usa a imagem oficial do Python 3.12, a mesma do seu ambiente local
+FROM python:3.12-slim
 
 # 2. Define o diretório de trabalho dentro do contêiner
 WORKDIR /app
 
-# 3. Instala as dependências do sistema operacional (Tesseract E as libs gráficas para o OpenCV)
-#    Adicionada a biblioteca 'libglib2.0-0' para maior compatibilidade.
+# 3. Instala as dependências do sistema operacional de forma mais robusta
+# Adiciona 'build-essential' para garantir que as ferramentas de compilação estejam presentes
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
     tesseract-ocr \
     tesseract-ocr-por \
     libgl1-mesa-glx \
@@ -31,3 +33,4 @@ EXPOSE 10000
 
 # 9. O comando final para iniciar o seu bot com o servidor Gunicorn
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000", "--timeout", "120"]
+
