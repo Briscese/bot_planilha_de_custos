@@ -4,11 +4,11 @@ FROM python:3.11-slim
 # 2. Define o diretório de trabalho dentro do contêiner
 WORKDIR /app
 
-# 3. Instala as dependências do sistema operacional (Tesseract) ANTES de tudo
-#    --no-install-recommends economiza espaço
+# 3. Instala as dependências do sistema operacional (Tesseract E as libs gráficas para o OpenCV)
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-por \
+    libgl1-mesa-glx \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
@@ -29,3 +29,4 @@ EXPOSE 10000
 
 # 9. O comando final para iniciar o seu bot com o servidor Gunicorn
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000", "--timeout", "120"]
+
